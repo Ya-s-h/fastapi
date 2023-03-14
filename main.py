@@ -35,6 +35,7 @@ origins = [
     "http://localhost:3000",
     "http://localhost:8080",
 ]
+# Using CORS Middleware to allow only localhost 3000/8080 ports for any methods
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
@@ -49,7 +50,7 @@ mongoClient = MongoClient(MONGO_URL, PORT)
 database = mongoClient['User_Details']
 
 
-# Creating API for home page ‾\_('‿')_/‾
+# Creating API for home page ‾\_('‿')_/‾ only for signin user
 @app.get('/')
 def home_page(current_user: User= Depends(get_current_user)):
     return {
@@ -60,12 +61,14 @@ def home_page(current_user: User= Depends(get_current_user)):
 
 @app.post('/signup')
 def create_user(data: User):
+# Hashing the inputted data
     HPass = Hash.genHash(plaintext=data.password)
     Username = data.username
     dbObj = {
         "user": Username,
         "password": HPass
     }
+# Inserting the data into database
     database['users'].insert_one(dbObj)
     
     return {
@@ -78,16 +81,19 @@ def create_user(data: User):
 @app.post('/signin')
 def signin(data: OAuth2PasswordRequestForm = Depends(User)):
     Username = data.username
+# Finding the username
     user = database["users"].find_one({
         "user": Username
     })
-
+	
+# If either username is not present in database or password is invalid
     if not user or not Hash.check(user['password'], data.password ):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Wrong pair of Username and Password is inserted", 
             headers={"WWW-Authenticate": "Bearer"},
 	    )
+# Generating token for Valid user
     access_token = create_token(data={"user": user["user"] })
     return {"access_token": access_token, "token_type": "bearer"}
 
